@@ -1,136 +1,177 @@
-const searchInput = document.getElementById("search-input");
-const searchBtn = document.getElementById("search-btn");
-const mealsContainer = document.getElementById("meals");
-const resultHeading = document.getElementById("result-heading");
-const errorContainer = document.getElementById("error-container");
-const mealDetails = document.getElementById("meal-details");
-const mealDetailsContent = document.querySelector(".meal-details-content");
-const backBtn = document.getElementById("back-btn");
+// DOM Elements
+const startScreen = document.getElementById("start-screen");
+const quizScreen = document.getElementById("quiz-screen");
+const resultScreen = document.getElementById("result-screen");
+const startButton = document.getElementById("start-btn");
+const questionText = document.getElementById("question-text");
+const answersContainer = document.getElementById("answers-container");
+const currentQuestionSpan = document.getElementById("current-question");
+const totalQuestionsSpan = document.getElementById("total-questions");
+const scoreSpan = document.getElementById("score");
+const finalScoreSpan = document.getElementById("final-score");
+const maxScoreSpan = document.getElementById("max-score");
+const resultMessage = document.getElementById("result-message");
+const restartButton = document.getElementById("restart-btn");
+const progressBar = document.getElementById("progress");
 
-const BASE_URL = "https://www.themealdb.com/api/json/v1/1/";
-const SEARCH_URL = `${BASE_URL}search.php?s=`; //根据菜名，搜菜单；
-const LOOKUP_URL = `${BASE_URL}lookup.php?i=`; //根据菜名id，搜菜谱详情；
+const quizQuestions = [
+    {
+      question: "What is the capital of France?",
+      answers: [
+        { text: "London", correct: false },
+        { text: "Berlin", correct: false },
+        { text: "Paris", correct: true },
+        { text: "Madrid", correct: false },
+      ],
+    },
+    {
+      question: "Which planet is known as the Red Planet?",
+      answers: [
+        { text: "Venus", correct: false },
+        { text: "Mars", correct: true },
+        { text: "Jupiter", correct: false },
+        { text: "Saturn", correct: false },
+      ],
+    },
+    {
+      question: "What is the largest ocean on Earth?",
+      answers: [
+        { text: "Atlantic Ocean", correct: false },
+        { text: "Indian Ocean", correct: false },
+        { text: "Arctic Ocean", correct: false },
+        { text: "Pacific Ocean", correct: true },
+      ],
+    },
+    {
+      question: "Which of these is NOT a programming language?",
+      answers: [
+        { text: "Java", correct: false },
+        { text: "Python", correct: false },
+        { text: "Banana", correct: true },
+        { text: "JavaScript", correct: false },
+      ],
+    },
+    {
+      question: "What is the chemical symbol for gold?",
+      answers: [
+        { text: "Go", correct: false },
+        { text: "Gd", correct: false },
+        { text: "Au", correct: true },
+        { text: "Ag", correct: false },
+      ],
+    },
+  ];
 
-searchBtn.addEventListener("click", searchMeals);
-searchInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") searchMeals();
-});
-mealsContainer.addEventListener("click", handleMealClick);
-backBtn.addEventListener("click", () => mealDetails.classList.add("hidden"));
+  // QUIZ STATE VARS
+let currentQuestionIndex = 0;
+let score = 0;
+let answersDisabled = false;
 
-async function searchMeals() {
-    const searchTerm = searchInput.value.trim();
-    // handled the edge case
-    if (!searchTerm) {
-      errorContainer.textContent = "Please enter a search term";
-      errorContainer.classList.remove("hidden");
-      return;
-    }
-    try {
-      resultHeading.textContent = `Searching for "${searchTerm}"...`;
-      mealsContainer.innerHTML = "";
-      errorContainer.classList.add("hidden");
+totalQuestionsSpan.textContent = quizQuestions.length;
+maxScoreSpan.textContent = quizQuestions.length;
+
+// event listeners
+startButton.addEventListener("click", startQuiz);
+
+function startQuiz() {
+  // reset vars
+  currentQuestionIndex = 0;
+  score = 0;
+  scoreSpan.textContent = 0;
+
+  startScreen.classList.remove("active");
+  quizScreen.classList.add("active");
+
+  showQuestion();
+}
+
+function showQuestion() {
+  // reset state
+  answersDisabled = false;
+  const currentQuestion = quizQuestions[currentQuestionIndex];
+  currentQuestionSpan.textContent = currentQuestionIndex + 1;
   
-      // fetch meals from API
-      // www.themealdb.com/api/json/v1/1/search.php?s=chicken
-      const response = await fetch(`${SEARCH_URL}${searchTerm}`);
-      const data = await response.json();
-  
-      if (data.meals === null) {
-        // no meals found
-        resultHeading.textContent = ``;
-        mealsContainer.innerHTML = "";
-        errorContainer.textContent = `No recipes found for "${searchTerm}". Try another search term!`;
-        errorContainer.classList.remove("hidden");
-      } else {
-        resultHeading.textContent = `Search results for "${searchTerm}":`;
-        displayMeals(data.meals);
-        searchInput.value = "";
-      }
-    } catch (error) {
-      errorContainer.textContent = "Something went wrong. Please try again later.";
-      errorContainer.classList.remove("hidden");
+  const progressPercent = (currentQuestionIndex / quizQuestions.length) * 100;
+  progressBar.style.width = progressPercent + "%";
+  questionText.textContent = currentQuestion.question;
+  answersContainer.innerHTML = "";
+
+  currentQuestion.answers.forEach((answer) => {
+    const button = document.createElement("button");
+    button.textContent = answer.text;
+    button.classList.add("answer-btn");
+
+    // what is dataset? it's a property of the button element that allows you to store custom data
+    button.dataset.correct = answer.correct;
+    button.addEventListener("click", selectAnswer);
+    answersContainer.appendChild(button);
+  });
+}
+
+//上述代码对应的html代码：
+//<div class="answers-container">
+//  <button class="answer-btn" data-correct="true/false">Answer Text 1</button>
+//  <button class="answer-btn" data-correct="true/false">Answer Text 2</button>
+//  <button class="answer-btn" data-correct="true/false">Answer Text 3</button>
+//  <button class="answer-btn" data-correct="true/false">Answer Text 4</button>
+//</div>
+
+function selectAnswer(event) {
+  // optimization check
+  if (answersDisabled) return;
+  answersDisabled = true;
+
+  const selectedButton = event.target;
+  const isCorrect = selectedButton.dataset.correct === "true";
+  // Here Array.from() is used to convert the NodeList returned by answersContainer.children into an array, this is because the NodeList is not an array and we need to use the forEach method
+  Array.from(answersContainer.children).forEach((button) => {
+    if (button.dataset.correct === "true") {
+      button.classList.add("correct");
+    } else if (button === selectedButton) {
+      button.classList.add("incorrect");
     }
+  });
+
+  if (isCorrect) {
+    score++;
+    scoreSpan.textContent = score;
   }
 
-  function displayMeals(meals) {
-    mealsContainer.innerHTML = "";
-    // loop through meals and create a card for each meal
-    meals.forEach((meal) => {
-      mealsContainer.innerHTML += `
-        <div class="meal" data-meal-id="${meal.idMeal}">
-          <img src="${meal.strMealThumb}" alt="${meal.strMeal}">
-          <div class="meal-info">
-            <h3 class="meal-title">${meal.strMeal}</h3>
-            ${meal.strCategory ? `<div class="meal-category">${meal.strCategory}</div>` : ""}
-          </div>
-        </div>
-      `;
-    });
-  }
-
-  async function handleMealClick(e) {
-    const mealEl = e.target.closest(".meal");
-    if (!mealEl) return;
-  
-    const mealId = mealEl.getAttribute("data-meal-id");
-  
-    try {
-      const response = await fetch(`${LOOKUP_URL}${mealId}`);
-      const data = await response.json();
-  
-      if (data.meals && data.meals[0]) {
-        const meal = data.meals[0];
-  
-        const ingredients = [];
-  
-        for (let i = 1; i <= 20; i++) {
-          if (meal[`strIngredient${i}`] && meal[`strIngredient${i}`].trim() !== "") {
-            ingredients.push({
-              ingredient: meal[`strIngredient${i}`],
-              measure: meal[`strMeasure${i}`],
-            });
-          }
-        }
-  
-        // display meal details
-        mealDetailsContent.innerHTML = `
-             <img src="${meal.strMealThumb}" alt="${meal.strMeal}" class="meal-details-img">
-             <h2 class="meal-details-title">${meal.strMeal}</h2>
-             <div class="meal-details-category">
-               <span>${meal.strCategory || "Uncategorized"}</span>
-             </div>
-             <div class="meal-details-instructions">
-               <h3>Instructions</h3>
-               <p>${meal.strInstructions}</p>
-             </div>
-             <div class="meal-details-ingredients">
-               <h3>Ingredients</h3>
-               <ul class="ingredients-list">
-                 ${ingredients
-                   .map(
-                     (item) => `
-                   <li><i class="fas fa-check-circle"></i> ${item.measure} ${item.ingredient}</li>
-                 `
-                   )
-                   .join("")}
-               </ul>
-             </div>
-             ${
-               meal.strYoutube
-                 ? `
-               <a href="${meal.strYoutube}" target="_blank" class="youtube-link">
-                 <i class="fab fa-youtube"></i> Watch Video
-               </a>
-             `
-                 : ""
-             }
-           `;
-        mealDetails.classList.remove("hidden");
-        mealDetails.scrollIntoView({ behavior: "smooth" });
-      }
-    } catch (error) {
-      errorContainer.textContent = "Could not load recipe details. Please try again later.";
-      errorContainer.classList.remove("hidden");
+  setTimeout(() => {
+    currentQuestionIndex++;
+    // check if there are more questions or if the quiz is over
+    if (currentQuestionIndex < quizQuestions.length) {
+      showQuestion();
+    } else {
+      showResults();
     }
+  }, 1000);
+}
+
+function showResults() {
+  quizScreen.classList.remove("active");
+  resultScreen.classList.add("active");
+
+  finalScoreSpan.textContent = score;
+
+  const percentage = (score / quizQuestions.length) * 100;
+
+  if (percentage === 100) {
+    resultMessage.textContent = "Perfect! You're a genius!";
+  } else if (percentage >= 80) {
+    resultMessage.textContent = "Great job! You know your stuff!";
+  } else if (percentage >= 60) {
+    resultMessage.textContent = "Good effort! Keep learning!";
+  } else if (percentage >= 40) {
+    resultMessage.textContent = "Not bad! Try again to improve!";
+  } else {
+    resultMessage.textContent = "Keep studying! You'll get better!";
   }
+}
+
+restartButton.addEventListener("click", restartQuiz);
+
+function restartQuiz() {
+  resultScreen.classList.remove("active");
+  startQuiz();
+}
